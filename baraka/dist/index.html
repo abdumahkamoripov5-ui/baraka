@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#125b49">
+  <meta name="description" content="Baraka: xarajatlar, oila budjeti, jamg‘arma, qarzlar va to‘lovlar bir makonda.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="color-scheme" content="light dark">
+  <title>Baraka — xotirjam hayot uchun</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-pending">
+  <div class="session-check" role="status"><b>BARAKA</b><p class="session-message">Hisobingiz tekshirilmoqda…</p><a href="/">Kirish sahifasiga qaytish →</a></div>
+  <a class="skip-link" href="#view">Asosiy mazmunga o‘tish</a>
+  <aside class="sidebar">
+    <a class="logo" href="#today" aria-label="Baraka bosh sahifa"><span class="brand-mark">✳</span>baraka<span class="brand-dot">.</span></a>
+    <div class="workspace"><div class="workspace-icon" data-icon="home"></div><div><b id="workspace-name">Bizning oila</b><small>Moliyaviy xotirjamlik makoni</small></div><span class="status-dot" title="Brauzerda saqlanadi"></span></div>
+    <p class="nav-label">SIZNING MOLIYANGIZ</p>
+    <nav aria-label="Asosiy menyu">
+      <a href="#today" data-page="today"><span data-icon="sun"></span><span>Bugun</span></a>
+      <a href="#tasks" data-page="tasks"><span data-icon="check"></span><span>Rejalar</span></a>
+      <a href="#prayer" data-page="prayer"><span data-icon="moon"></span><span>Namoz vaqtlari</span></a>
+      <a href="#transport" data-page="transport"><span data-icon="grid"></span><span>Transport</span></a>
+      <a href="#home" data-page="home"><span data-icon="grid"></span><span>Moliya</span></a>
+      <a href="#transactions" data-page="transactions"><span data-icon="swap"></span><span>Amaliyotlar</span></a>
+      <a href="#family" data-page="family"><span data-icon="users"></span><span>Oila budjeti</span></a>
+      <a href="#goals" data-page="goals"><span data-icon="target"></span><span>Jamg‘armalar</span><span class="nav-tag">Maqsad</span></a>
+      <a href="#debts" data-page="debts"><span data-icon="hand"></span><span>Qarzlar</span></a>
+      <a href="#bills" data-page="bills"><span data-icon="calendar"></span><span>To‘lovlar</span><span id="bill-badge" class="nav-count"></span></a>
+      <a href="#report" data-page="report"><span data-icon="chart"></span><span>Hisobotlar</span></a>
+      <a href="#settings" data-page="settings"><span data-icon="settings"></span><span>Sozlamalar</span></a>
+      <a href="#wallets" data-page="wallets"><span data-icon="wallet"></span><span>Hamyonlar</span></a>
+      <a href="#calendar" data-page="calendar"><span data-icon="calendar"></span><span>Taqvim</span></a>
+      <a href="#utilities" data-page="utilities"><span data-icon="home"></span><span>Kommunal xizmatlar</span></a>
+    </nav>
+    <div class="sidebar-bottom"><div class="sidebar-note"><span class="note-star">✧</span><b>Ertangi kuningizga<br>bugun sarmoya qiling.</b><p>Har bir kichik qadam —<br>katta orzular boshlanishi.</p><span class="note-orbit"></span></div><div class="profile"><span class="avatar" id="profile-letter">O</span><div><b id="profile-name">Mening oilam</b><small><span class="status-dot"></span> Qurilmada saqlanadi</small></div><a href="#settings" aria-label="Sozlamalar" data-icon="settings"></a></div></div>
+  </aside>
+  <main>
+    <header class="topbar"><div class="breadcrumb">Shaxsiy makon <span>/</span> <b id="page-name">Umumiy ko‘rinish</b></div><div class="top-actions"><span id="today"></span><button class="account-button" id="account-button" onclick="openAccount()">Kirish</button><button class="icon-button" onclick="togglePrivacy()" id="privacy-btn" aria-label="Summalarni yashirish" title="Summalarni yashirish" data-icon="eye"></button><button class="icon-button" onclick="toggleTheme()" id="theme-btn" aria-label="Rang rejimini almashtirish" title="Kunduzgi / tungi rejim" data-icon="moon"></button><button class="icon-button notification-button" onclick="openReminders()" aria-label="Eslatmalar" title="Eslatmalar"><span data-icon="bell"></span><i id="notification-dot" hidden></i></button></div></header>
+    <div class="content"><div class="heading"><div><p class="eyebrow">KUNDALIK HAYOTINGIZ — BIR MAKONDA</p><h1 id="title">Hammasi o‘z qo‘lingizda <span class="greeting">✦</span></h1><p id="subtitle">Xarajatlaringizni boshqaring. Orzularingizga yaqinlashing.</p></div><button id="main-add" class="primary" onclick="openForm('transaction')"><span data-icon="plus"></span> Amaliyot qo‘shish</button></div>
+    <div class="demo-note" id="demo-note"><span>✧ <b>Namuna rejimi.</b> Imkoniyatlarni bemalol sinab ko‘ring.</span><button onclick="clearDemo()">O‘z hisobimni boshlash <span>↗</span></button></div>
+    <div id="cloud-banner"></div><div id="view" tabindex="-1"></div>
+    <footer><a class="footer-logo" href="#home">✳ baraka.</a><span>Har bir so‘m — kelajagingizning bir qismi.</span><span class="local-status"><i class="status-dot"></i> Ma’lumotlar qurilmangizda</span></footer></div>
+  </main>
+  <dialog id="modal" aria-labelledby="modal-title"><div class="modal-head"><div><p class="eyebrow">BARAKA · SHAXSIY MOLIYA</p><h2 id="modal-title"></h2></div><button type="button" class="icon-button" onclick="closeModal()" aria-label="Oynani yopish" data-icon="close"></button></div><form id="entry-form"><div id="fields"></div><p id="form-error" role="alert"></p><div class="modal-actions"><button type="button" class="secondary" onclick="closeModal()">Bekor qilish</button><button class="primary" id="save-button" type="submit">Saqlash <span>↗</span></button></div></form></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+  <noscript><p class="noscript">Sayt ishlashi uchun brauzeringizda JavaScript’ni yoqing.</p></noscript>
+  <script src="model.js"></script>
+  <script src="places.js"></script>
+  <script src="day.js"></script>
+  <script src="app.js"></script>
+  <script src="sync.js"></script>
+</body></html>

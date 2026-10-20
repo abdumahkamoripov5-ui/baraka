@@ -1,0 +1,11 @@
+.git
+**/.git
+.agents
+.codex
+.aws
+node_modules
+**/node_modules
+baraka/data
+.env
+.env.*
+*.log

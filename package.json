@@ -1,0 +1,12 @@
+{
+  "name": "baraka-family-finance",
+  "version": "4.0.0",
+  "private": true,
+  "description": "Kundalik rejalar, oilaviy moliya va shahar xizmatlari",
+  "scripts": {
+    "start": "node baraka/server.cjs",
+    "dev": "node baraka/server.cjs",
+    "test": "node baraka/tests/app.test.cjs && node baraka/tests/server.test.cjs && node baraka/tests/welcome.test.cjs && node baraka/tests/api.test.cjs && node baraka/tests/push.test.cjs && node baraka/tests/sync.test.cjs && node baraka/tests/city-services.test.cjs && node baraka/tests/voice.test.cjs",
+    "check": "node --check baraka/dist/welcome.js && node --check baraka/dist/model.js && node --check baraka/dist/app.js && node --check baraka/dist/sync.js && node --check baraka/dist/sw.js && node --check baraka/server.cjs && node --check baraka/lib/api.cjs && node --check baraka/lib/push.cjs && node --check baraka/lib/store.cjs && node --check baraka/lib/utilities.cjs && node --check baraka/dist/day.js && node --check baraka/dist/places.js && node --check baraka/lib/city-services.cjs && node --check baraka/lib/voice.cjs"
+  }
+}
