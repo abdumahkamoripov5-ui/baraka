@@ -9,7 +9,17 @@
       "maxDuration": 60
     }
   },
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/welcome.html",
+      "permanent": false
+    }
+  ],
   "rewrites": [
-    { "source": "/:path*", "destination": "/api/entry" }
+    {
+      "source": "/:path*",
+      "destination": "/api/entry"
+    }
   ]
 }
