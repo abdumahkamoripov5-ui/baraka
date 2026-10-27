@@ -6,6 +6,8 @@ const {normalize,empty}=require('../dist/model.js');
 const {validateEndpoint}=require('./push.cjs');
 const {validateCheckout}=require('./utilities.cjs');
 const {createCityServices}=require('./city-services.cjs');
+const {createTelegram}=require('./telegram.cjs');
+const {createAccess,loadAccess}=require('./access.cjs');
 const {sourceFor}=require('./voice.cjs');
 const token=()=>crypto.randomBytes(32).toString('base64url');
 const digest=s=>crypto.createHash('sha256').update(s).digest('hex');
@@ -13,19 +15,25 @@ const id=()=>crypto.randomUUID();
 const fail=(status,message)=>{const e=Error(message);e.status=status;throw e};
 const trim=(v,max=100)=>{if(typeof v!=='string'||!v.trim()||v.length>max)fail(400,'Ma’lumotni to‘g‘ri kiriting.');return v.trim()};
 const safeUser=u=>({id:u.id,name:u.name,email:u.email,currentHouseholdId:u.currentHouseholdId});
-function createAPI({store,origin,push,utilityAdapter=null,paymentHosts=[],cityServices=createCityServices(),voice=null,now=()=>Date.now()}){
- const limits=new Map();let hashing=0;
+function createAPI({store,origin,push,utilityAdapter=null,paymentHosts=[],cityServices=createCityServices(),voice=null,now=()=>Date.now(),accessAdapter=loadAccess(),limits=new Map()}){
+ let hashing=0;
  async function hashPassword(password,salt){if(hashing>=2)fail(429,'Server band. Birozdan keyin qaytaring.');hashing++;try{return await scrypt(password,salt,64,{N:65536,r:8,p:2,maxmem:128*1024*1024})}finally{hashing--}}
  function limit(key,max=120){const current=limits.get(key),time=now();if(!current||current.until<time)limits.set(key,{count:1,until:time+60000});else{current.count++;if(current.count>max)fail(429,'Juda ko‘p urinish. Bir daqiqadan keyin qaytaring.')}if(limits.size>10000)for(const [k,v]of limits)if(v.until<time)limits.delete(k)}
  const cookie=(session,age=604800)=>`baraka_session=${session}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${origin.startsWith('https:')?'; Secure':''}`;
  function auth(req){const cookies=String(req.headers.cookie||'').split(';').map(x=>x.trim());const key=cookies.find(c=>c.startsWith('baraka_session='))?.slice(15);if(!key)fail(401,'Avval hisobga kiring.');const session=store.data.sessions.find(s=>s.hash===digest(key)&&s.expires>now());if(!session)fail(401,'Sessiya tugagan. Qayta kiring.');const user=store.data.users.find(u=>u.id===session.userId);if(!user)fail(401,'Hisob topilmadi.');const house=store.data.households.find(h=>h.id===user.currentHouseholdId);if(!house||!user.householdIds.includes(house.id))fail(403,'Oilaviy hisobga kirish yo‘q.');return{user,house,session}}
- function snapshot(user,house){return{user:safeUser(user),household:{id:house.id,name:house.state.settings.name,ownerId:house.ownerId,revision:house.revision,members:store.data.users.filter(u=>u.householdIds.includes(house.id)).map(u=>({id:u.id,name:u.name,role:u.id===house.ownerId?'owner':'member'}))},households:store.data.households.filter(h=>user.householdIds.includes(h.id)).map(h=>({id:h.id,name:h.state.settings.name})),state:house.state,revision:house.revision}}
+ function role(user,house){return house.ownerId===user.id?'owner':house.roles?.[user.id]==='child'?'child':'member'}
+ function visible(user,house){const state=normalize(house.state);if(role(user,house)!=='child')return state;const out=empty(house.state.settings.name,user.name);out.tasks=state.tasks.filter(t=>t.member===user.name);out.shopping=state.shopping.map(x=>({...x,transactionId:''}));return out}
+ function snapshot(user,house){return{user:safeUser(user),household:{id:house.id,name:house.state.settings.name,ownerId:house.ownerId,role:role(user,house),revision:house.revision,members:store.data.users.filter(u=>u.householdIds.includes(house.id)).map(u=>({id:u.id,name:u.name,role:role(u,house)}))},households:store.data.households.filter(h=>user.householdIds.includes(h.id)).map(h=>({id:h.id,name:h.state.settings.name})),state:visible(user,house),revision:house.revision}}
+
  function newSession(db,user){const key=token();db.sessions=db.sessions.filter(s=>s.expires>now());db.sessions.push({hash:digest(key),userId:user.id,expires:now()+7*86400000});return key}
+ const telegram=createTelegram({store,now});
+ const access=createAccess({store,adapter:accessAdapter,now,hashPassword,newSession,snapshot,cookie,empty,limit});
  async function dispatch(req,path,body,raw=''){
  if(!body||typeof body!=='object'||Array.isArray(body))fail(400,'JSON obyekt yuboring.');
  const method=req.method,key=(req.socket?.remoteAddress||'local');limit(key);
  const mutating=!['GET','HEAD'].includes(method),webhook=['/api/utilities/webhook','/api/voice/webhook'].includes(path);
  if(mutating&&!webhook){if(req.headers.origin!==origin)fail(403,'So‘rov manbasi mos emas.');if(!String(req.headers['content-type']||'').startsWith('application/json'))fail(415,'JSON so‘rov yuboring.')}
+ if(path.startsWith('/api/access/')){const result=await access.dispatch(req,path,body,key);if(result)return result;}
  if(path==='/api/status'&&method==='GET')return{body:{server:true,cloud:origin.startsWith('https:'),origin,push:{ready:push.ready,publicKey:push.publicKey},utilities:{configured:!!utilityAdapter,name:utilityAdapter?.name||null},transport:{live:cityServices.liveTransit},voice:{configured:!!voice?.ready}}};
  if(path==='/api/prayer-times'&&method==='GET'){const q=new URL(req.url,origin).searchParams;return{body:await cityServices.prayers(q.get('city')||'tashkent',q.get('date')||new Date(now()).toISOString().slice(0,10),q.get('method')||3)}}
  if(path==='/api/transit'&&method==='GET'){limit('transit:'+key,12);const q=new URL(req.url,origin).searchParams;return{body:await cityServices.transit(q.get('city')||'tashkent',q.get('lat'),q.get('lon'))}}
@@ -35,7 +43,7 @@ function createAPI({store,origin,push,utilityAdapter=null,paymentHosts=[],citySe
  store.update(db=>{const job=(db.voiceJobs||[]).find(j=>j.id===jobId);if(!job)fail(404,'Eslatma topilmadi.');if(!/^CA[a-fA-F0-9]{32}$/.test(result.CallSid||'')||(job.providerSid&&job.providerSid!==result.CallSid))fail(409,'Qo‘ng‘iroq identifikatori mos emas.');if(['pending','canceled','missed'].includes(job.status))fail(409,'Qo‘ng‘iroq hali yuborilmagan yoki bekor qilingan.');job.providerSid=result.CallSid;const rank={dispatching:0,unknown:0,queued:1,initiated:2,ringing:3,'in-progress':4,completed:5,busy:5,failed:5,'no-answer':5,canceled:5};if(!terminal.includes(job.status)&&(rank[result.CallStatus]||0)>=(rank[job.status]||0)){job.status=result.CallStatus;job.updatedAt=now()}});return{body:{ok:true}};
  }
  if(path==='/api/auth/register'&&method==='POST'){
- limit('auth:'+key,8);const name=trim(body.name,40),email=trim(body.email,200).toLowerCase(),password=body.password;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||typeof password!=='string'||password.length<12||password.length>128)fail(400,'Email va kamida 12 belgili parol kiriting.');
+ limit('auth:'+key,8);const name=trim(body.name,40),email=trim(body.email,200).toLowerCase(),password=body.password;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||typeof password!=='string'||!password.trim()||password.length>128)fail(400,'To‘g‘ri email va o‘zingiz tanlagan parolni kiriting. Parol bo‘sh bo‘lmasin va 128 belgidan oshmasin.');
  limit('account:'+email,8);const salt=crypto.randomBytes(16).toString('hex'),hash=(await hashPassword(password,salt)).toString('hex');let user,house,sessionKey;
  store.update(db=>{if(db.users.some(u=>u.email===email))fail(409,'Bu email bilan hisob mavjud.');const householdId=id();user={id:id(),name,email,salt,hash,currentHouseholdId:householdId,householdIds:[householdId],createdAt:now()};house={id:householdId,ownerId:user.id,state:empty(name+' oilasi',name),revision:0};db.users.push(user);db.households.push(house);sessionKey=newSession(db,user)});return{status:201,headers:{'Set-Cookie':cookie(sessionKey)},body:snapshot(user,house)};
  }
@@ -46,7 +54,24 @@ function createAPI({store,origin,push,utilityAdapter=null,paymentHosts=[],citySe
  if(!utilityAdapter)fail(503,'Kommunal operator ulanmagan.');const event=await utilityAdapter.verifyWebhook(req.headers,raw);if(!event||event.verified!==true||typeof event.eventId!=='string'||event.eventId.length>150)fail(401,'Operator tasdig‘i noto‘g‘ri.');
  store.update(db=>{if(db.events.includes(event.eventId))return;const order=db.payments.find(p=>p.id===event.paymentId);if(!order)fail(404,'To‘lov topilmadi.');if(event.amount!==order.amount)fail(409,'To‘lov summasi mos emas.');if(!['paid','failed'].includes(event.status))fail(400,'To‘lov holati noma’lum.');if(event.status==='paid'&&order.status!=='paid'){const h=db.households.find(h=>h.id===order.householdId);if(!h)fail(404,'Hisob topilmadi.');if(!h.state.wallets.some(w=>w.id===order.walletId))fail(409,'To‘lov hamyoni topilmadi.');const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tashkent',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now()));h.state.transactions.push({id:'utility-'+order.id,name:order.name,amount:order.amount,type:'expense',category:'Uy va kommunal',member:order.member,walletId:order.walletId,method:h.state.wallets.find(w=>w.id===order.walletId).type==='cash'?'Naqd':'Karta',date});h.revision++;order.status='paid';order.confirmedAt=now()}else if(order.status!=='paid')order.status='failed';db.events.push(event.eventId)});return{body:{ok:true}};
  }
+
  const {user,house,session}=auth(req);
+ if(path==='/api/telegram'&&['GET','POST'].includes(method)){limit('telegram:'+user.id,10);return telegram.dispatch(user,method,body)}
+ if(path==='/api/personal'&&['GET','PUT'].includes(method)){
+ const personal=user.personal||{revision:0,state:empty('Shaxsiy hisob',user.name)};
+ if(method==='GET')return {body:personal};
+ if(body.revision!==personal.revision)fail(409,'Shaxsiy hisob boshqa qurilmada o‘zgardi. Yangilang.');let next;try{next=normalize(body.state)}catch(e){fail(400,e.message)}store.update(db=>{db.users.find(u=>u.id===user.id).personal={revision:personal.revision+1,state:next}});return {body:{revision:personal.revision+1,state:next}};
+ }
+ if(path==='/api/family/allowance'&&method==='POST'){
+ if(house.ownerId!==user.id)fail(403,'Faqat oila egasi.');const target=store.data.users.find(u=>u.id===body.userId&&u.householdIds.includes(house.id));if(!target||role(target,house)!=='child')fail(403,'Bola hisobi topilmadi.');const amount=body.amount,wallet=house.state.wallets.find(w=>w.id===body.walletId);if(!wallet||!Number.isSafeInteger(amount)||amount<1||amount>1e12||typeof body.key!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(body.key))fail(400,'Summa va hamyonni tekshiring.');
+ const txid='allowance-'+body.key;const prior=house.state.transactions.find(t=>t.id===txid);if(prior){if(prior.amount!==amount||prior.walletId!==wallet.id||prior.member!==target.name)fail(409,'So‘rov kaliti boshqa amal uchun ishlatilgan.');return {body:snapshot(user,house)}}
+ store.update(db=>{const h=db.households.find(h=>h.id===house.id),u=db.users.find(u=>u.id===target.id),p=u.personal||{revision:0,state:empty('Shaxsiy hisob',u.name)};const entry={id:txid,name:'Cho‘ntak puli',amount,type:'expense',walletId:wallet.id,method:wallet.type==='cash'?'Naqd':'Karta',member:target.name,category:'Boshqa',date:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tashkent',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now()))};h.state=normalize({...h.state,transactions:[...h.state.transactions,entry]});h.revision++;u.personal={revision:p.revision+1,state:normalize({...p.state,transactions:[...p.state.transactions,{...entry,type:'income',walletId:p.state.wallets[0].id,method:p.state.wallets[0].type==='cash'?'Naqd':'Karta'}]})}});return {body:snapshot(user,store.data.households.find(h=>h.id===house.id))};
+ }
+ if(path==='/api/family/role'&&method==='POST'){
+ if(house.ownerId!==user.id||body.userId===user.id||!['member','child'].includes(body.role))fail(403,'Ruxsat yo‘q.');const target=store.data.users.find(u=>u.id===body.userId&&u.householdIds.includes(house.id));if(!target)fail(404,'A’zo topilmadi.');store.update(db=>{const h=db.households.find(h=>h.id===house.id);h.roles={...h.roles,[target.id]:body.role};h.revision++});return {body:snapshot(user,store.data.households.find(h=>h.id===house.id))};
+ }
+ if(role(user,house)==='child'&&!['/api/auth/me','/api/auth/password','/api/auth/logout','/api/state','/api/family/switch'].includes(path))fail(403,'Bu bo‘lim kattalar uchun.');
+
  if(path==='/api/voice/settings'&&method==='GET')return{body:{...(voice?voice.status(user):{configured:false,eligible:false,consent:false}),jobs:(store.data.voiceJobs||[]).filter(j=>j.userId===user.id).map(({id,targetType,targetId,dueAt,status,householdId})=>({id,targetType,targetId,dueAt,status,householdId})).slice(-100)}};
  if(path==='/api/voice/consent'&&method==='POST'){if(body.enabled!==true&&body.enabled!==false)fail(400,'Rozilikni belgilang.');if(body.enabled&&(!voice?.ready||!voice.status(user).eligible))fail(503,'Operator va sizga tegishli tasdiqlangan raqam hali sozlanmagan.');store.update(db=>{db.users.find(u=>u.id===user.id).voiceConsent=body.enabled;if(!body.enabled)for(const j of db.voiceJobs||[])if(j.userId===user.id&&j.status==='pending')j.status='canceled'});return{body:{ok:true}}}
  if(path==='/api/voice/schedule'&&method==='POST'){
@@ -56,12 +81,16 @@ function createAPI({store,origin,push,utilityAdapter=null,paymentHosts=[],citySe
  }
  if(path==='/api/voice/cancel'&&method==='POST'){store.update(db=>{const job=(db.voiceJobs||[]).find(j=>j.id===body.id&&j.userId===user.id);if(!job)fail(404,'Eslatma topilmadi.');if(job.status!=='pending')fail(409,'Bu qo‘ng‘iroq allaqachon yuborilgan.');job.status='canceled'});return{body:{ok:true}}}
  if(path==='/api/auth/me'&&method==='GET')return{body:snapshot(user,house)};
- if(path==='/api/auth/password'&&method==='POST'){if(typeof body.password!=='string'||body.password.length<12||body.password.length>128||typeof body.currentPassword!=='string'||body.currentPassword.length>128)fail(400,'Yangi parol kamida 12 belgidan iborat bo‘lsin.');limit('password:'+user.id,5);const check=await hashPassword(body.currentPassword,user.salt);if(!crypto.timingSafeEqual(check,Buffer.from(user.hash,'hex')))fail(401,'Hozirgi parol noto‘g‘ri.');const salt=crypto.randomBytes(16).toString('hex'),hash=(await hashPassword(body.password,salt)).toString('hex');store.update(db=>{const u=db.users.find(u=>u.id===user.id);if(u.hash!==user.hash||!db.sessions.some(s=>s.hash===session.hash&&s.expires>now()))fail(401,'Sessiya yoki parol o‘zgargan. Qayta kiring.');u.salt=salt;u.hash=hash;db.sessions=db.sessions.filter(s=>s.userId!==user.id||s.hash===session.hash);db.subscriptions=db.subscriptions.filter(s=>s.userId!==user.id||s.sessionHash===session.hash)});return{body:{ok:true}}}
+ if(path==='/api/auth/password'&&method==='POST'){if(typeof body.password!=='string'||!body.password.trim()||body.password.length>128||typeof body.currentPassword!=='string'||body.currentPassword.length>128)fail(400,'Yangi parol bo‘sh bo‘lmasin va 128 belgidan oshmasin.');limit('password:'+user.id,5);const check=await hashPassword(body.currentPassword,user.salt);if(!crypto.timingSafeEqual(check,Buffer.from(user.hash,'hex')))fail(401,'Hozirgi parol noto‘g‘ri.');const salt=crypto.randomBytes(16).toString('hex'),hash=(await hashPassword(body.password,salt)).toString('hex');store.update(db=>{const u=db.users.find(u=>u.id===user.id);if(u.hash!==user.hash||!db.sessions.some(s=>s.hash===session.hash&&s.expires>now()))fail(401,'Sessiya yoki parol o‘zgargan. Qayta kiring.');u.salt=salt;u.hash=hash;db.sessions=db.sessions.filter(s=>s.userId!==user.id||s.hash===session.hash);db.subscriptions=db.subscriptions.filter(s=>s.userId!==user.id||s.sessionHash===session.hash)});return{body:{ok:true}}}
  if(path==='/api/auth/logout'&&method==='POST'){store.update(db=>{db.sessions=db.sessions.filter(s=>s.hash!==session.hash);db.subscriptions=db.subscriptions.filter(s=>s.sessionHash!==session.hash);for(const j of db.voiceJobs||[])if(j.sessionHash===session.hash&&j.status==='pending')j.status='canceled'});return{headers:{'Set-Cookie':cookie('',0)},body:{ok:true}}}
  if(path==='/api/state'&&method==='GET')return{body:snapshot(user,house)};
  if(path==='/api/state'&&method==='PUT'){
  if(body.householdId!==house.id)fail(409,'Faol oilaviy hisob o‘zgargan. Qayta yuklang.');let next;try{next=normalize(body.state)}catch(error){fail(400,error.message)}if(!Number.isInteger(body.revision))fail(400,'Hisob versiyasi kerak.');
  if(body.revision!==house.revision)return{status:409,body:{error:'Hisob boshqa qurilmada o‘zgardi. Nusxalarni tekshiring.',conflict:true,...snapshot(user,house)}};
+ if(role(user,house)==='child'){
+ const merged=normalize(house.state);const mine=next.tasks;if(mine.some(t=>t.member!==user.name))fail(403,'Faqat o‘z vazifangizni o‘zgartiring.');const otherIds=new Set(merged.tasks.filter(t=>t.member!==user.name).map(t=>t.id));if(mine.some(t=>otherIds.has(t.id)))fail(403,'Vazifa identifikatori band.');merged.tasks=[...merged.tasks.filter(t=>t.member!==user.name),...mine];
+ merged.shopping=next.shopping.map(x=>({...x,transactionId:merged.shopping.find(y=>y.id===x.id)?.transactionId||''}));next=normalize(merged);
+ }
  // Payment evidence is server-owned; a client cannot remove its wallet while confirmation is pending.
  const protectedWallets=store.data.payments.filter(p=>p.householdId===house.id&&['pending','unknown'].includes(p.status)).map(p=>p.walletId);if(protectedWallets.some(w=>!next.wallets.some(x=>x.id===w)))fail(409,'Jarayondagi to‘lov hamyonini o‘chirib bo‘lmaydi.');
  store.update(db=>{const h=db.households.find(h=>h.id===house.id);h.state=next;h.revision++});return{body:snapshot(user,store.data.households.find(h=>h.id===house.id))};
@@ -87,6 +116,6 @@ function createAPI({store,origin,push,utilityAdapter=null,paymentHosts=[],citySe
  }
  async function handle(req,res){try{let raw='',chunks=[],size=0;if(!['GET','HEAD'].includes(req.method)){for await(const chunk of req){const bytes=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);size+=bytes.length;if(size>4*1024*1024)fail(413,'So‘rov juda katta.');chunks.push(bytes)}raw=Buffer.concat(chunks).toString('utf8')}let body={};const path=new URL(req.url,origin).pathname;if(raw&&!['/api/utilities/webhook','/api/voice/webhook'].includes(path)){try{body=JSON.parse(raw)}catch{fail(400,'JSON noto‘g‘ri.')}}const result=await dispatch(req,path,body,raw);send(res,result.status||200,result.body,result.headers)}catch(error){send(res,error.status||500,{error:error.status?error.message:'Server xatosi. Ma’lumotlar o‘zgartirilmadi.'})}}
  function send(res,status,body,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers});res.end(JSON.stringify(body))}
- return{handle,dispatch,auth};
+ return{handle,dispatch,auth,telegramTick:telegram.tick};
 }
 module.exports={createAPI};

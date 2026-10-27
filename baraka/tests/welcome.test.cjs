@@ -37,7 +37,7 @@ function entry(t,scene=false){
   fetch:async(url,options={})=>{if(offline)throw Error('offline');calls.push(url);try{const result=await api.dispatch({method:options.method||'GET',url,headers:{origin:'http://localhost:3000','content-type':'application/json',cookie},socket:{remoteAddress:'welcome-test'}},url,options.body?JSON.parse(options.body):{});if(result.headers?.['Set-Cookie'])cookie=result.headers['Set-Cookie'].split(';')[0];return{ok:true,json:async()=>result.body}}catch(error){return{ok:false,status:error.status||500,json:async()=>({error:error.message})}}}
  };
  vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'../dist/welcome.js'),'utf8'),context);
- return{store,fields,submit,status,form,tabs,calls,nodes,chapters,steps,frame(p){sceneP=p;const fn=frame;frame=null;fn()},get destination(){return destination},set offline(v){offline=v},async ready(){await new Promise(resolve=>setImmediate(resolve))},async send(){await form.events.submit({preventDefault(){}})}};
+ return{store,fields,submit,status,form,tabs,calls,nodes,chapters,steps,frame(p){sceneP=p;const fn=frame;frame=null;fn()},get destination(){return destination},set offline(v){offline=v},async ready(){await new Promise(resolve=>setImmediate(resolve))},async logout(){await context.fetch('/api/auth/logout',{method:'POST',body:'{}'});destination=''},async send(){await form.events.submit({preventDefault(){}})}};
 }
 test('new visitor registers from the landing page and enters an empty personal account',async t=>{
  const b=entry(t);await b.ready();assert.equal(b.destination,'');
@@ -58,4 +58,16 @@ test('scroll enters the home, reveals one benefit at a time and ends on the logi
  b.frame(.52);assert.ok(Number(b.nodes['.interior-shot'].style.opacity)>.5);assert.ok(Number(b.chapters[1].style.opacity)>.95);assert.equal(b.chapters[0].inert,true);
  b.frame(.74);assert.equal(Number(b.nodes['.interior-shot'].style.opacity),1);assert.ok(Number(b.chapters[2].style.opacity)>.95);
  b.frame(.96);assert.equal(b.nodes['.journey-arrival'].inert,false);assert.equal(Number(b.nodes['.journey-arrival'].style.opacity),1);assert.equal(b.steps[3].attributes['aria-current'],'step');
+});
+
+test('visitor can register using a personally chosen short numeric password',async t=>{
+ const b=entry(t);await b.ready();b.tabs[1].events.click();
+ b.fields.name.value='Dilnoza';b.fields.email.value='dilnoza@example.com';b.fields.password.value='5382';b.fields.passwordConfirm.value='5382';
+ await b.send();assert.equal(b.destination,'app.html#today',b.status.textContent);assert.equal(b.store.data.users[0].name,'Dilnoza');
+ await b.logout();b.tabs[0].events.click();await b.send();assert.equal(b.destination,'app.html#today',b.status.textContent);assert.ok(b.calls.includes('/api/auth/login'));
+});
+
+test('incomplete registration gives a visible explanation without posting credentials',async t=>{
+ const b=entry(t);await b.ready();b.tabs[1].events.click();b.form.reportValidity=()=>false;
+ await b.send();assert.match(b.status.textContent,/Ismingiz/);assert.equal(b.calls.includes('/api/auth/register'),false);assert.equal(b.destination,'');
 });

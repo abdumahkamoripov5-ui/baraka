@@ -1,5 +1,9 @@
 # Baraka 4.0
 
+## Vercel + Neon
+
+Vercel uchun Node Function va PostgreSQL’da doimiy saqlash qo‘shilgan. Bepul shaxsiy sinov uchun sozlash va cheklovlar: [qadam-baqadam Vercel qo‘llanmasi](docs/VERCEL.md). Mahalliy JSON baza bilan `npm start` alohida ishlashda davom etadi. Vercel’ga jonli deploy hisob egasi bilan sozlanishi kerak; avtomatik eslatma va operator integratsiyalari bu variantda ulanmagan.
+
 O‘zbek tilidagi shaxsiy va oilaviy moliya vositasi. Tashqi frontend kutubxonalarisiz ishlaydi.
 
 ## Ishga tushirish

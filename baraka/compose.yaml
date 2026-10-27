@@ -1,0 +1,42 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_ORIGIN: https://${BARAKA_DOMAIN:?Set BARAKA_DOMAIN in .env}
+      PUSH_CONTACT: ${PUSH_CONTACT:?Set PUSH_CONTACT in .env}
+      VOICE_TWILIO_ACCOUNT_SID: ${VOICE_TWILIO_ACCOUNT_SID:-}
+      VOICE_TWILIO_AUTH_TOKEN: ${VOICE_TWILIO_AUTH_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_NAME: ${TELEGRAM_BOT_NAME:-}
+      BARAKA_ACCESS_ADAPTER: ${BARAKA_ACCESS_ADAPTER:-}
+      VOICE_FROM_NUMBER: ${VOICE_FROM_NUMBER:-}
+      VOICE_RECIPIENTS_JSON: ${VOICE_RECIPIENTS_JSON:-}
+    volumes:
+      - baraka_data:/data
+    expose:
+      - "3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      BARAKA_DOMAIN: ${BARAKA_DOMAIN:?Set BARAKA_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+volumes:
+  baraka_data:
+  caddy_data:
+  caddy_config:

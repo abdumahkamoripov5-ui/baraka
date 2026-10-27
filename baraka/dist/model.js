@@ -28,9 +28,36 @@ function normalize(s){
  const minutes=v=>{v=v??0;if(![0,5,15,30,60].includes(v))throw Error('Eslatma oralig‘i noto‘g‘ri.');return v};
  out.tasks=list('tasks',5000).map(t=>({id:identifier(t.id),name:text(t.name,100),date:date(t.date),time:time(t.time),member:text(t.member||members[0],40),priority:['low','normal','high'].includes(t.priority)?t.priority:'normal',done:t.done===true,remindMinutes:minutes(t.remindMinutes)}));
  out.appointments=list('appointments',3000).map(e=>({id:identifier(e.id),name:text(e.name,100),date:date(e.date),time:time(e.time),location:typeof e.location==='string'?e.location.slice(0,150):'',kind:e.kind==='reminder'?'reminder':'meeting',done:e.done===true,remindMinutes:minutes(e.remindMinutes)}));
- for(const list of [out.transactions,out.goals,out.debts,out.bills,out.transfers,out.utilities,out.tasks,out.appointments]){if(new Set(list.map(x=>x.id)).size!==list.length)throw Error('Takroriy yozuv identifikatori.');}
+ out.savedPlaces=list('savedPlaces',500).map(p=>{const lat=p.lat==null?null:p.lat,lon=p.lon==null?null:p.lon;if((lat===null)!==(lon===null)||(lat!==null&&(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>85||Math.abs(lon)>180)))throw Error('Joy koordinatasi noto‘g‘ri.');return{id:identifier(p.id),name:text(p.name,100),kind:['restaurant','shop','stop','other'].includes(p.kind)?p.kind:'other',member:text(p.member||members[0],40),address:typeof p.address==='string'?p.address.slice(0,200):'',note:typeof p.note==='string'?p.note.slice(0,300):'',city:typeof p.city==='string'?p.city.slice(0,40):'tashkent',lat,lon}});
+
+ out.settings.nextIncomeDate=cfg.nextIncomeDate?date(cfg.nextIncomeDate):'';
+ out.settings.country=['UZ','KZ','KG','TJ','TM'].includes(cfg.country)?cfg.country:'UZ';
+ out.shopping=list('shopping',1000).map(x=>({id:identifier(x.id),name:text(x.name,100),quantity:text(x.quantity||'1',40),member:text(x.member||members[0],40),done:x.done===true,transactionId:typeof x.transactionId==='string'?x.transactionId.slice(0,100):''}));
+ out.remittances=list('remittances',3000).map(x=>({id:identifier(x.id),name:text(x.name,80),currency:['USD','EUR','RUB','KZT','KGS','TJS','TMT','UZS'].includes(x.currency)?x.currency:'USD',original:num(x.original,false),fee:num(x.fee),received:num(x.received,false),date:date(x.date),transactionId:identifier(x.transactionId)}));
+ out.installments=list('installments',500).map(x=>{const total=num(x.total,false),down=num(x.down),count=num(x.count,false),paid=num(x.paid);if(down>=total||total-down<count||count>120||paid>count)throw Error('Nasiya jadvali noto‘g‘ri.');return {id:identifier(x.id),name:text(x.name,80),total,down,count,paid,date:date(x.date),walletId:ids.has(x.walletId)?x.walletId:out.wallets[0].id}});
+ out.meterReadings=list('meterReadings',5000).map(x=>({id:identifier(x.id),utilityId:identifier(x.utilityId),date:date(x.date),value:num(x.value),tariff:num(x.tariff),photo:typeof x.photo==='string'&&/^data:image\/(jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(x.photo)&&x.photo.length<=160000?x.photo:''}));
+ for(const list of [out.shopping,out.remittances,out.installments,out.meterReadings,out.savedPlaces,out.transactions,out.goals,out.debts,out.bills,out.transfers,out.utilities,out.tasks,out.appointments]){if(new Set(list.map(x=>x.id)).size!==list.length)throw Error('Takroriy yozuv identifikatori.');}
  return out;
 }
 function empty(name='Bizning oila',member='Men'){return normalize({budget:0,members:[member],settings:{name},transactions:[],goals:[],debts:[],bills:[],limits:{}})}
-return {normalize,empty};
+function budgetAlerts(state,today=dateKey(new Date())){const expenses=(state.transactions||[]).filter(t=>t.type==='expense'&&t.date.slice(0,7)===today.slice(0,7)&&t.date<=today);return [{name:'Oylik budjet',limit:state.budget,spent:expenses.reduce((s,t)=>s+t.amount,0)},...Object.entries(state.limits||{}).map(([name,limit])=>({name,limit,spent:expenses.filter(t=>t.category===name).reduce((s,t)=>s+t.amount,0)}))].filter(a=>a.limit>0&&a.spent*5>=a.limit*4).map(a=>({...a,percent:Math.floor(a.spent/a.limit*100),level:a.spent>=a.limit?'limit':'warning'}))}
+function quickExpense(input){
+ const m=String(input).trim().match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(ming|mln|million|тыс|млн)?\s*$/i);if(!m)throw Error('Masalan: Bozor 180 ming');
+ const amount=Math.round(Number(m[2].replace(',','.'))*({ming:1000,mln:1e6,million:1e6,'тыс':1000,'млн':1e6}[m[3]?.toLowerCase()]||1));if(!Number.isSafeInteger(amount)||amount<1||amount>1e12)throw Error('Summa noto‘g‘ri.');
+ const name=m[1].trim();if(name.length>80)throw Error('Nom 80 belgidan oshmasin.');const lower=name.toLowerCase();let category='Boshqa';
+ for(const [re,cat] of [[/bozor|oziq|non|ovqat|продукт|базар/,'Oziq-ovqat'],[/yo‘l|yo'l|taksi|transport|benzin|такси/,'Transport'],[/dori|dorixona|apтеka|аптека/,'Salomatlik'],[/maktab|kitob|kurs|школ/,'Ta’lim'],[/gaz|elektr|suv|internet/,'Uy va kommunal']])if(re.test(lower)){category=cat;break}
+ return {name,amount,category};
+}
+function monthlyDate(start,offset){const d=new Date(start+'T12:00:00'),anchor=d.getDate(),month=d.getMonth()+offset,year=d.getFullYear();return dateKey(new Date(year,month,Math.min(anchor,new Date(year,month+1,0).getDate()),12))}
+function installmentDue(x,index=x.paid){const principal=x.total-x.down,base=Math.floor(principal/x.count);return index===x.count-1?principal-base*(x.count-1):base}
+function runway(s,today=dateKey(new Date())){
+ const end=s.settings.nextIncomeDate;if(!end||end<=today)return null;
+ const days=Math.round((new Date(end+'T12:00:00')-new Date(today+'T12:00:00'))/86400000);
+ const balance=s.wallets.reduce((a,w)=>a+w.opening,0)+s.transactions.filter(t=>t.date<=today).reduce((a,t)=>a+(t.type==='income'?t.amount:-t.amount),0);
+ let reserved=0;for(const b of s.bills.filter(b=>!b.done)){for(let i=0;i<240;i++){const date=b.frequency==='monthly'?monthlyDate(b.date,i):b.date;if(date>=end)break;reserved+=b.amount;if(b.frequency!=='monthly')break}}
+ reserved+=s.debts.filter(d=>d.type==='borrowed'&&d.date<end).reduce((a,d)=>a+d.amount-d.repaid,0);
+ for(const x of s.installments||[])for(let i=x.paid;i<x.count;i++){if(monthlyDate(x.date,i)>=end)break;reserved+=installmentDue(x,i)}
+ return {balance,reserved,remaining:balance-reserved,days,daily:Math.floor((balance-reserved)/days),end};
+}
+return {normalize,empty,budgetAlerts,quickExpense,monthlyDate,installmentDue,runway};
 });

@@ -11,6 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="welcome.css">
+  <script src="locale.js" defer></script>
+  <script src="access.js" defer></script>
   <script src="welcome.js" defer></script>
 </head>
 <body>
@@ -46,12 +48,12 @@
     <section id="access" class="access" aria-labelledby="access-heading">
       <div class="access-copy" data-enter><p class="mono blue">YANGI BOB SHU YERDAN BOSHLANADI</p><h2 id="access-heading">Oilangiz makoniga<br><em>xush kelibsiz.</em></h2><p>Rejalaringiz, moliyangiz va oilangiz.<br>Barchasi sizni shu yerda kutmoqda.</p><div class="access-seal" aria-hidden="true"><span>✳</span><p class="mono">OILA · ISHONCH · BARAKA</p></div></div>
       <div class="auth-panel" data-enter><div class="auth-tabs" role="tablist" aria-label="Hisob rejimi"><button id="login-tab" type="button" role="tab" aria-selected="true" aria-controls="auth-form" data-auth-mode="login">Kirish</button><button id="register-tab" type="button" role="tab" aria-selected="false" aria-controls="auth-form" data-auth-mode="register" tabindex="-1">Ro‘yxatdan o‘tish</button></div>
-        <form id="auth-form" role="tabpanel" aria-labelledby="login-tab" aria-describedby="auth-status">
+        <form id="auth-form" novalidate role="tabpanel" aria-labelledby="login-tab" aria-describedby="auth-status">
           <label class="register-field" hidden>Ismingiz<input name="name" autocomplete="name" maxlength="40" placeholder="Ismingizni kiriting" disabled></label>
           <label>Email<input name="email" type="email" required maxlength="200" autocomplete="username" placeholder="siz@example.com"></label>
           <label>Parol<span class="password-wrap"><input name="password" type="password" required maxlength="128" autocomplete="current-password" placeholder="Parolingizni kiriting"><button class="password-toggle" type="button" aria-label="Parolni ko‘rsatish" aria-pressed="false">Ko‘rsatish</button></span></label>
           <label class="register-field" hidden>Parolni takrorlang<input name="passwordConfirm" type="password" maxlength="128" autocomplete="new-password" placeholder="Parolingizni qayta kiriting" disabled></label>
-          <p class="password-help register-field" hidden>Parol kamida 12 belgidan iborat bo‘lsin.</p>
+          <p class="password-help register-field" hidden>Parolni o‘zingiz tanlang: raqam, harf yoki belgilar. Parol bo‘sh bo‘lmasin.</p>
           <p id="auth-status" class="auth-status" role="status" aria-live="polite"></p>
           <button class="submit-button" type="submit"><span>Kirish</span><span aria-hidden="true">↗</span></button>
           <p class="auth-switch">Yangi foydalanuvchimisiz? <button type="button" id="switch-mode">Hisob yarating</button></p>

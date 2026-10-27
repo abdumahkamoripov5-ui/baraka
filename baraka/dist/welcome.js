@@ -1,5 +1,6 @@
 'use strict';
 (function(){
+ try{const invite=new URLSearchParams(location.search).get('invite');if(invite&&/^[A-Za-z0-9_-]{20,100}$/.test(invite))sessionStorage.setItem('baraka-invite',invite)}catch{}
  const form=document.querySelector('#auth-form');
  const status=document.querySelector('#auth-status');
  const submit=form.querySelector('[type=submit]');
@@ -15,8 +16,8 @@
   form.setAttribute('aria-labelledby',mode+'-tab');
   form.querySelectorAll('.register-field').forEach(el=>{el.hidden=mode!=='register';const input=el.querySelector('input');if(input){input.disabled=mode!=='register';input.required=mode==='register'}});
   form.elements.password.autocomplete=mode==='register'?'new-password':'current-password';
-  form.elements.password.placeholder=mode==='register'?'Kamida 12 belgi':'Parolingizni kiriting';
-  if(mode==='register')form.elements.password.minLength=12;else form.elements.password.removeAttribute('minlength');
+  form.elements.password.placeholder=mode==='register'?'O‘zingiz tanlagan parol':'Parolingizni kiriting';
+  form.elements.password.removeAttribute('minlength');
   form.elements.passwordConfirm.setCustomValidity('');
   submit.firstElementChild.textContent=mode==='register'?'Hisob yaratish':'Kirish';
   document.querySelector('.auth-switch').firstChild.textContent=mode==='register'?'Hisobingiz bormi? ':'Yangi foydalanuvchimisiz? ';
@@ -38,8 +39,8 @@
  }
  form.addEventListener('submit',async e=>{
   e.preventDefault();if(busy)return;
-  if(mode==='register'&&form.elements.password.value!==form.elements.passwordConfirm.value){form.elements.passwordConfirm.setCustomValidity('Parollar bir xil emas.');form.elements.passwordConfirm.reportValidity();return}
-  if(!form.reportValidity())return;
+  if(mode==='register'&&form.elements.password.value!==form.elements.passwordConfirm.value){form.elements.passwordConfirm.setCustomValidity('Parollar bir xil emas.');status.textContent='Parollar bir xil emas. Ikkala maydonga bir xil parol kiriting.';form.elements.passwordConfirm.reportValidity();return}
+  if(!form.reportValidity()){status.textContent=mode==='register'?'Ismingiz, to‘g‘ri email va parolingizni kiriting.':'To‘g‘ri email va parolingizni kiriting.';return;}
   const body={email:form.elements.email.value.trim(),password:form.elements.password.value};
   if(mode==='register')body.name=form.elements.name.value.trim();
   busy=true;submit.disabled=true;form.setAttribute('aria-busy','true');tabs.forEach(tab=>tab.disabled=true);status.textContent=mode==='register'?'Hisob yaratilmoqda…':'Hisobingiz tekshirilmoqda…';

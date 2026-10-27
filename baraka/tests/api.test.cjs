@@ -22,3 +22,26 @@ test('unsafe checkout destinations and arbitrary push endpoints are rejected',as
 test('transactional file store rolls back failures and corrupt data is never replaced silently',t=>{const f=fixture(t);f.store.update(db=>{db.events.push('safe')});assert.throws(()=>f.store.update(db=>{db.events.push('bad');throw Error('failure')}));assert.deepEqual(f.store.data.events,['safe']);assert.deepEqual(new Store(f.dir).data.events,['safe']);fs.writeFileSync(path.join(f.dir,'database.json'),'broken');assert.throws(()=>new Store(f.dir));assert.equal(fs.readFileSync(path.join(f.dir,'database.json'),'utf8'),'broken')});
 test('HTTPS deployments issue Secure, HttpOnly, SameSite cookies',async t=>{const secure='https://baraka.example.com',f=fixture(t,{origin:secure});const r=await f.call('POST','/api/auth/register',{name:'Ali',email:'ali@example.com',password:PASSWORD},'',{headers:{origin:secure}});const cookie=r.headers['Set-Cookie'];assert.ok(cookie.includes('; Secure'));assert.ok(cookie.includes('; HttpOnly'));assert.ok(cookie.includes('; SameSite=Strict'))});
 test('invalid financial states are rejected atomically',async t=>{const f=fixture(t),a=await f.register('Ali','ali@example.com');await assert.rejects(f.call('PUT','/api/state',{state:{...a.state,budget:-100},revision:0,householdId:a.household.id},a.cookie),e=>e.status===400);assert.equal(f.store.data.households[0].revision,0);assert.equal(f.store.data.households[0].state.budget,0)});
+
+test('personally chosen numeric, short and Unicode passwords support registration and later login',async t=>{
+ const f=fixture(t);
+ for(const [i,password] of ['7','5382','salom','Oila✓'].entries()){
+  const email=`chosen-${i}@example.com`,r=await f.call('POST','/api/auth/register',{name:'Dilnoza',email,password});
+  assert.equal(r.status,201);const cookie=r.headers['Set-Cookie'].split(';')[0];
+  assert.equal((await f.call('GET','/api/auth/me',{},cookie)).body.user.email,email);
+  await f.call('POST','/api/auth/logout',{},cookie);
+  const login=await f.call('POST','/api/auth/login',{email,password});assert.equal(login.body.user.id,r.body.user.id);
+  const user=f.store.data.users.find(u=>u.email===email);assert.equal(user.hash.length,128);assert.notEqual(user.hash,password);
+ }
+});
+test('blank and oversized passwords are rejected without creating an account',async t=>{
+ const f=fixture(t);
+ for(const password of ['', '   ', 'x'.repeat(129), null, 1234])await assert.rejects(f.call('POST','/api/auth/register',{name:'Dilnoza',email:'invalid@example.com',password}),e=>e.status===400);
+ assert.equal(f.store.data.users.length,0);assert.equal(f.store.data.sessions.length,0);
+});
+test('password can be changed to a chosen short code and old credentials stop working',async t=>{
+ const f=fixture(t),a=await f.register('Dilnoza','password-change@example.com');
+ await f.call('POST','/api/auth/password',{currentPassword:PASSWORD,password:'5382'},a.cookie);
+ await assert.rejects(f.call('POST','/api/auth/login',{email:a.user.email,password:PASSWORD}),e=>e.status===401);
+ const login=await f.call('POST','/api/auth/login',{email:a.user.email,password:'5382'});assert.equal(login.body.user.id,a.user.id);
+});

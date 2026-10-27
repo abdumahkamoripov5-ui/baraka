@@ -1,0 +1,21 @@
+{
+  "name": "baraka-family-finance",
+  "version": "4.0.0",
+  "private": true,
+  "description": "Kundalik rejalar, oilaviy moliya va shahar xizmatlari",
+  "scripts": {
+    "start": "node server.cjs",
+    "dev": "node server.cjs",
+    "test": "node tests/app.test.cjs && node tests/features.test.cjs && node tests/server.test.cjs && node tests/welcome.test.cjs && node tests/api.test.cjs && node tests/push.test.cjs && node tests/sync.test.cjs && node tests/city-services.test.cjs && node tests/voice.test.cjs && node tests/service-check.test.cjs && node tests/favorites.test.cjs && node tests/life.test.cjs && node tests/vercel.test.cjs",
+    "check": "node --check dist/welcome.js && node --check dist/model.js && node --check dist/app.js && node --check dist/sync.js && node --check dist/sw.js && node --check server.cjs && node --check lib/api.cjs && node --check lib/push.cjs && node --check lib/store.cjs && node --check lib/utilities.cjs && node --check dist/day.js && node --check dist/places.js && node --check lib/city-services.cjs && node --check lib/voice.cjs && node --check check-services.cjs && node --check lib/service-check.cjs && node --check dist/favorites.js && node --check dist/life.js && node --check dist/locale.js && node --check dist/access.js && node --check lib/access.cjs && node --check lib/telegram.cjs && node --check api/entry.js && node --check lib/postgres.cjs && node --check lib/vercel.cjs && node --check scripts/import-postgres.cjs",
+    "services:check": "node check-services.cjs",
+    "test:vercel": "node --test tests/vercel.test.cjs",
+    "import:postgres": "node scripts/import-postgres.cjs"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}

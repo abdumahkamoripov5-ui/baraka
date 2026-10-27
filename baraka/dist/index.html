@@ -19,13 +19,14 @@
     <div class="workspace"><div class="workspace-icon" data-icon="home"></div><div><b id="workspace-name">Bizning oila</b><small>Moliyaviy xotirjamlik makoni</small></div><span class="status-dot" title="Brauzerda saqlanadi"></span></div>
     <p class="nav-label">SIZNING MOLIYANGIZ</p>
     <nav aria-label="Asosiy menyu">
-      <a href="#today" data-page="today"><span data-icon="sun"></span><span>Bugun</span></a>
+      <a href="#today" data-page="today" class="mobile-main"><span data-icon="sun"></span><span>Bugun</span></a>
       <a href="#tasks" data-page="tasks"><span data-icon="check"></span><span>Rejalar</span></a>
       <a href="#prayer" data-page="prayer"><span data-icon="moon"></span><span>Namoz vaqtlari</span></a>
+      <a href="#favorites" data-page="favorites"><span data-icon="target"></span><span>Saqlangan joylar</span></a>
       <a href="#transport" data-page="transport"><span data-icon="grid"></span><span>Transport</span></a>
-      <a href="#home" data-page="home"><span data-icon="grid"></span><span>Moliya</span></a>
+      <a href="#home" data-page="home" class="mobile-main"><span data-icon="grid"></span><span>Pul</span></a>
       <a href="#transactions" data-page="transactions"><span data-icon="swap"></span><span>Amaliyotlar</span></a>
-      <a href="#family" data-page="family"><span data-icon="users"></span><span>Oila budjeti</span></a>
+      <a href="#family" data-page="family" class="mobile-main"><span data-icon="users"></span><span>Oila</span></a>
       <a href="#goals" data-page="goals"><span data-icon="target"></span><span>Jamg‘armalar</span><span class="nav-tag">Maqsad</span></a>
       <a href="#debts" data-page="debts"><span data-icon="hand"></span><span>Qarzlar</span></a>
       <a href="#bills" data-page="bills"><span data-icon="calendar"></span><span>To‘lovlar</span><span id="bill-badge" class="nav-count"></span></a>
@@ -34,6 +35,8 @@
       <a href="#wallets" data-page="wallets"><span data-icon="wallet"></span><span>Hamyonlar</span></a>
       <a href="#calendar" data-page="calendar"><span data-icon="calendar"></span><span>Taqvim</span></a>
       <a href="#utilities" data-page="utilities"><span data-icon="home"></span><span>Kommunal xizmatlar</span></a>
+      <a href="#shopping" data-page="shopping" class="mobile-main"><span data-icon="check"></span><span>Xaridlar</span></a>
+      <a href="#more" data-page="more" class="mobile-main"><span data-icon="grid"></span><span>Yana</span></a>
     </nav>
     <div class="sidebar-bottom"><div class="sidebar-note"><span class="note-star">✧</span><b>Ertangi kuningizga<br>bugun sarmoya qiling.</b><p>Har bir kichik qadam —<br>katta orzular boshlanishi.</p><span class="note-orbit"></span></div><div class="profile"><span class="avatar" id="profile-letter">O</span><div><b id="profile-name">Mening oilam</b><small><span class="status-dot"></span> Qurilmada saqlanadi</small></div><a href="#settings" aria-label="Sozlamalar" data-icon="settings"></a></div></div>
   </aside>
@@ -50,7 +53,10 @@
   <noscript><p class="noscript">Sayt ishlashi uchun brauzeringizda JavaScript’ni yoqing.</p></noscript>
   <script src="model.js"></script>
   <script src="places.js"></script>
+  <script src="favorites.js"></script>
   <script src="day.js"></script>
+  <script src="locale.js"></script>
+  <script src="life.js"></script>
   <script src="app.js"></script>
   <script src="sync.js"></script>
 </body></html>
