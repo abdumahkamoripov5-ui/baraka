@@ -41,6 +41,12 @@ function normalize(s){
 }
 function empty(name='Bizning oila',member='Men'){return normalize({budget:0,members:[member],settings:{name},transactions:[],goals:[],debts:[],bills:[],limits:{}})}
 function budgetAlerts(state,today=dateKey(new Date())){const expenses=(state.transactions||[]).filter(t=>t.type==='expense'&&t.date.slice(0,7)===today.slice(0,7)&&t.date<=today);return [{name:'Oylik budjet',limit:state.budget,spent:expenses.reduce((s,t)=>s+t.amount,0)},...Object.entries(state.limits||{}).map(([name,limit])=>({name,limit,spent:expenses.filter(t=>t.category===name).reduce((s,t)=>s+t.amount,0)}))].filter(a=>a.limit>0&&a.spent*5>=a.limit*4).map(a=>({...a,percent:Math.floor(a.spent/a.limit*100),level:a.spent>=a.limit?'limit':'warning'}))}
+function budgetSummary(state,today=dateKey(new Date())){
+ const current=new Date(today+'T12:00:00'),elapsed=current.getDate(),days=new Date(current.getFullYear(),current.getMonth()+1,0).getDate();
+ const spent=(state.transactions||[]).filter(t=>t.type==='expense'&&t.date.slice(0,7)===today.slice(0,7)&&t.date<=today).reduce((n,t)=>n+t.amount,0);
+ const limit=state.budget||0,remaining=limit-spent,daysLeft=days-elapsed+1;
+ return {limit,spent,remaining,daysLeft,daily:limit?Math.max(0,Math.floor(remaining/daysLeft)):0,forecast:Math.round(spent/elapsed*days)};
+}
 function quickExpense(input){
  const m=String(input).trim().match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(ming|mln|million|тыс|млн)?\s*$/i);if(!m)throw Error('Masalan: Bozor 180 ming');
  const amount=Math.round(Number(m[2].replace(',','.'))*({ming:1000,mln:1e6,million:1e6,'тыс':1000,'млн':1e6}[m[3]?.toLowerCase()]||1));if(!Number.isSafeInteger(amount)||amount<1||amount>1e12)throw Error('Summa noto‘g‘ri.');
@@ -59,5 +65,5 @@ function runway(s,today=dateKey(new Date())){
  for(const x of s.installments||[])for(let i=x.paid;i<x.count;i++){if(monthlyDate(x.date,i)>=end)break;reserved+=installmentDue(x,i)}
  return {balance,reserved,remaining:balance-reserved,days,daily:Math.floor((balance-reserved)/days),end};
 }
-return {normalize,empty,budgetAlerts,quickExpense,monthlyDate,installmentDue,runway};
+return {normalize,empty,budgetAlerts,budgetSummary,quickExpense,monthlyDate,installmentDue,runway};
 });
